@@ -55,7 +55,7 @@ function AuthForm() {
 
       toast.success(`${mode} successfully`);
       // Navigating re-renders the layout with the fresh (authenticated) user.
-      router.push("/profile");
+      router.push("/home");
     } catch {
       // The api client already displayed the error toast.
     }

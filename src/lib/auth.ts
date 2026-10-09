@@ -35,11 +35,10 @@ export async function verifyToken(token: string): Promise<AuthPayload> {
 }
 
 export function authCookieOptions(maxAge: number = AUTH_COOKIE_MAX_AGE) {
-  const production = config.node_env === "production";
   return {
     httpOnly: true,
-    sameSite: production ? ("none" as const) : ("lax" as const),
-    secure: production,
+    sameSite: "lax",
+    secure: true,
     path: "/",
     maxAge,
   };
