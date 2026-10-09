@@ -62,8 +62,8 @@ function AuthForm() {
   };
 
   return (
-    <div className="min-h-[70vh]">
-      <Card className="mx-auto m-4 max-w-md">
+    <div className="flex min-h-[70vh] items-center justify-center px-4 py-10">
+      <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-center">
             {mode === "signup" ? "Create an account" : "Welcome back"}

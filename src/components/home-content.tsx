@@ -32,33 +32,35 @@ export default async function HomeContent({ searchParams }: { searchParams: Sear
     : await getAllPosts({ page, sort_by: sortBy, order });
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background px-4 md:px-8">
       {denied && <DeniedToast />}
-      <h1 className="font-tech mt-4 text-center text-4xl font-bold">Home Feed</h1>
-      <SearchOptions q={q} sortBy={sortBy} order={order} />
+      <div className="mx-auto flex w-full max-w-7xl flex-col">
+        <h1 className="font-tech mt-4 text-center text-4xl font-bold">Home Feed</h1>
+        <SearchOptions q={q} sortBy={sortBy} order={order} />
 
-      {posts.length > 0 ? (
-        <ul className="grid grid-cols-1 gap-4 bg-background md:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post) => (
-            <PostDialog
-              key={post.id}
-              post={post}
-              trigger={<PostCard post={post} />}
-            >
-              <ViewPostCard post={post} />
-            </PostDialog>
-          ))}
-        </ul>
-      ) : (
-        <EmptyState />
-      )}
+        {posts.length > 0 ? (
+          <ul className="grid grid-cols-1 gap-4 bg-background md:grid-cols-2 lg:grid-cols-3">
+            {posts.map((post) => (
+              <PostDialog
+                key={post.id}
+                post={post}
+                trigger={<PostCard post={post} />}
+              >
+                <ViewPostCard post={post} />
+              </PostDialog>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState />
+        )}
 
-      <PaginationControls
-        currentPage={page}
-        q={q}
-        sortBy={sortBy}
-        order={order}
-      />
+        <PaginationControls
+          currentPage={page}
+          q={q}
+          sortBy={sortBy}
+          order={order}
+        />
+      </div>
     </div>
   );
 }
