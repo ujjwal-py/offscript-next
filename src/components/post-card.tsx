@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect } from "react";
 import { HeartIcon } from "lucide-react";
-import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { useLikeStore } from "@/store/like-store";
 import type { OpenablePost } from "@/lib/types";
 
@@ -23,7 +23,7 @@ function PostCard({ post }: { post: OpenablePost }) {
   }
 
   return (
-    <Card className="w-full overflow-hidden card-hover">
+    <Card className={`w-full overflow-hidden card-hover${post.imageUrl ? " pt-0" : ""}`}>
       {post.imageUrl && (
         <div className="relative w-full h-48">
           <Image
@@ -37,16 +37,18 @@ function PostCard({ post }: { post: OpenablePost }) {
       )}
       <CardContent className="gap-3 p-4">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg font-bold line-clamp-2 leading-snug text-left">{post.title}</CardTitle>
+          <div className="min-w-0">
+            <CardTitle className="text-left text-lg font-bold leading-snug line-clamp-2">{post.title}</CardTitle>
+            <p className="mt-1 text-left text-sm font-semibold text-muted-foreground">
+              {post.updatedAt.slice(0, 10)}
+            </p>
+          </div>
           <span className="flex items-center gap-1 text-sm font-semibold shrink-0 text-red-500">
             <HeartIcon className="size-4" /> {likes.length}
           </span>
         </div>
         <p className="line-clamp-3 text-sm text-left leading-relaxed text-muted-foreground">{post.description}</p>
       </CardContent>
-      <CardFooter className="gap-1 p-4 pt-0 border-t border-border/50">
-        <p className="text-sm text-muted-foreground">Posted on: {post.updatedAt.slice(0, 10)}</p>
-      </CardFooter>
     </Card>
   );
 }

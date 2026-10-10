@@ -18,7 +18,7 @@ function ProfilePostView({ post }: { post: OpenablePost }) {
             <Image src={post.imageUrl} alt={post.title} fill sizes="100vw" className="object-contain rounded-xl" />
           </div>
         )}
-        <p className="text-base text-muted-foreground whitespace-pre-line text-center">{post.description}</p>
+        <p className="text-base text-muted-foreground whitespace-pre-line text-left">{post.description}</p>
       </CardContent>
     </Card>
   );
