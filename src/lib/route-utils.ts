@@ -49,6 +49,7 @@ export async function parsePostForm<T>(
     title: formData.get("title") ?? undefined,
     description: formData.get("description") ?? undefined,
     status: formData.get("status") ?? undefined,
+    tags: formData.getAll("tags").filter((value): value is string => typeof value === "string"),
   };
 
   const result = schema.safeParse(raw);

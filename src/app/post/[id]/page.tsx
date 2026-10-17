@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import EmptyState from "@/components/empty-state";
 import LikeButton from "@/components/like-button";
+import TagChips from "@/components/tag-chips";
 import { getSingleHomePost } from "@/lib/services/posts";
 
 type Props = { params: Promise<{ id: string }> };
@@ -49,6 +50,7 @@ export default async function PostPage({ params }: Props) {
         <p className="w-full text-left text-lg wrap-anywhere whitespace-pre-line">
           {post.description && post.description}
         </p>
+        <TagChips tags={post.tags} className="justify-center" />
         <LikeButton post={post} />
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import PostTagsFooter from "@/components/post-tags-footer";
 import type { DraftPost } from "@/lib/types";
 
 function DraftedPostCard({ post }: { post: DraftPost }) {
@@ -18,9 +19,9 @@ function DraftedPostCard({ post }: { post: DraftPost }) {
           {post.status}
         </Badge>
       </CardContent>
-      <CardFooter className="gap-1 p-4 pt-0 border-t border-border/50">
+      <PostTagsFooter tags={post.tags}>
         <p className="text-sm text-muted-foreground">Last updated - {post.updatedAt.slice(0, 10)}</p>
-      </CardFooter>
+      </PostTagsFooter>
     </Card>
   );
 }

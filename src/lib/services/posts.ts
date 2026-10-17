@@ -3,6 +3,7 @@ import { unstable_cache, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { CustomError, NotFoundError } from "@/lib/errors";
+import { buildPostWhere } from "@/lib/search";
 import { deletePostImage, uploadPostImage } from "@/lib/supabase";
 import type { PostImageFile } from "@/lib/route-utils";
 import type { NewPostBody, UpdatePostBody } from "@/lib/validation";
@@ -13,8 +14,23 @@ type PostOrderBy = Prisma.PostsOrderByWithRelationInput;
 /** Number of posts shown per page (feed and search). */
 export const POSTS_PER_PAGE = 9;
 
+/** Number of posts shown per page on /tags/[tag]. */
+export const TAG_PAGE_SIZE = 10;
+
 const likesOrderBy = (order: OrderTypes): PostOrderBy => ({ Likes: { _count: order } });
 const dateOrderBy = (order: OrderTypes): PostOrderBy => ({ updatedAt: order });
+
+/** Shared `where` for the public search findMany and its count. */
+const searchPostWhere = (q: string): Prisma.PostsWhereInput => ({
+  status: "PUBLISHED",
+  ...buildPostWhere(q),
+});
+
+/** Shared `where` for the tag page findMany and its count. */
+const tagWhere = (tag: string): Prisma.PostsWhereInput => ({
+  status: "PUBLISHED",
+  tags: { has: tag.trim().toLowerCase() },
+});
 
 const parseOrderId = (id: string): number => {
   const parsed = parseInt(id, 10);
@@ -30,7 +46,7 @@ export async function createPost(
   body: NewPostBody,
   image: PostImageFile | null
 ): Promise<DraftPost> {
-  const { title, description, status } = body;
+  const { title, description, status, tags } = body;
 
   const uploadedImage = image ? await uploadPostImage(image) : null;
   try {
@@ -41,6 +57,7 @@ export async function createPost(
         authorId,
         imageUrl: uploadedImage?.publicUrl ?? null,
         status,
+        tags,
       },
     });
     revalidateTag("posts", { expire: 0 });
@@ -65,7 +82,7 @@ export async function editPost(
   image: PostImageFile | null
 ): Promise<DraftPost> {
   const postId = parseOrderId(id);
-  const { title, description, status } = body;
+  const { title, description, status, tags } = body;
 
   const existingPost = await prisma.posts.findUnique({
     where: { id: postId, authorId },
@@ -85,6 +102,7 @@ export async function editPost(
         ...(description !== undefined && { description }),
         ...(uploadedImage && { imageUrl: uploadedImage.publicUrl }),
         ...(status !== undefined && { status }),
+        ...(tags !== undefined && { tags }),
       },
     });
 
@@ -131,6 +149,7 @@ export const getAllPosts = unstable_cache<
         id: true,
         title: true,
         description: true,
+        tags: true,
         status: true,
         imageUrl: true,
         author: {
@@ -179,6 +198,7 @@ export const getSingleHomePost = unstable_cache<
         id: true,
         title: true,
         description: true,
+        tags: true,
         status: true,
         imageUrl: true,
         author: {
@@ -205,9 +225,10 @@ export const getSingleHomePost = unstable_cache<
 );
 
 /**
- * GET /v1/search/posts — case-insensitive title search over published posts.
- * Paginates only when `page` is provided (so the /v1 API keeps returning every
- * match); the home feed always passes a page.
+ * GET /v1/search/posts — search published posts by title, description or tag
+ * (see `buildPostWhere` for the `#tag` syntax). Paginates only when `page` is
+ * provided (so the /v1 API keeps returning every match); the home feed always
+ * passes a page.
  */
 export const searchPublicPosts = unstable_cache<
   (options: { q: string; order: OrderTypes; sort_by: SortTypes; page?: number }) => Promise<HomePost[]>
@@ -228,19 +249,14 @@ export const searchPublicPosts = unstable_cache<
     const offset = paginate ? Math.max((options.page as number) - 1, 0) * POSTS_PER_PAGE : 0;
 
     const posts = await prisma.posts.findMany({
-      where: {
-        title: {
-          contains: q,
-          mode: "insensitive",
-        },
-        status: "PUBLISHED",
-      },
+      where: searchPostWhere(q),
       ...(paginate ? { skip: offset, take: POSTS_PER_PAGE } : {}),
       orderBy,
       select: {
         id: true,
         title: true,
         description: true,
+        tags: true,
         status: true,
         updatedAt: true,
         imageUrl: true,
@@ -270,10 +286,7 @@ export const countSearchPublicPosts = unstable_cache(
     const query = String(q || "").trim();
     if (!query) return 0;
     return prisma.posts.count({
-      where: {
-        title: { contains: query, mode: "insensitive" },
-        status: "PUBLISHED",
-      },
+      where: searchPostWhere(query),
     });
   },
   ["posts-search-count"],
@@ -301,6 +314,7 @@ export const userUnPublishedPosts = unstable_cache<
         id: true,
         title: true,
         description: true,
+        tags: true,
         updatedAt: true,
         status: true,
         Likes: {
@@ -357,6 +371,7 @@ export const searchUserUnPublishedPosts = unstable_cache<
         id: true,
         title: true,
         description: true,
+        tags: true,
         updatedAt: true,
         status: true,
         Likes: {
@@ -419,6 +434,7 @@ export const userPublishedPosts = unstable_cache<
         id: true,
         title: true,
         description: true,
+        tags: true,
         status: true,
         updatedAt: true,
         imageUrl: true,
@@ -479,6 +495,7 @@ export const searchUserPosts = unstable_cache<
         id: true,
         title: true,
         description: true,
+        tags: true,
         status: true,
         updatedAt: true,
         imageUrl: true,
@@ -685,6 +702,7 @@ export const getPendingPostsAdmin = unstable_cache<
         id: true,
         title: true,
         description: true,
+        tags: true,
         status: true,
         updatedAt: true,
         imageUrl: true,
@@ -708,4 +726,55 @@ export const getPendingPostsAdmin = unstable_cache<
   },
   ["admin-pending"],
   { revalidate: 30, tags: ["admin-posts", "posts"] }
+);
+
+/**
+ * GET /tags/[tag] — published posts carrying an exact tag, newest first.
+ * Paginates only when `page` is provided.
+ */
+export const getPostsByTag = unstable_cache<
+  (tag: string, page?: number) => Promise<HomePost[]>
+>(
+  async (tag: string, page?: number): Promise<HomePost[]> => {
+    const paginate = Number.isFinite(page);
+    const offset = paginate ? Math.max((page as number) - 1, 0) * TAG_PAGE_SIZE : 0;
+
+    const posts = await prisma.posts.findMany({
+      where: tagWhere(tag),
+      ...(paginate ? { skip: offset, take: TAG_PAGE_SIZE } : {}),
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        tags: true,
+        status: true,
+        updatedAt: true,
+        imageUrl: true,
+        author: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        Likes: {
+          select: {
+            userId: true,
+            postId: true,
+          },
+        },
+      },
+    });
+
+    return posts.map((post) => ({ ...post, updatedAt: post.updatedAt.toISOString() }));
+  },
+  ["posts-by-tag"],
+  { revalidate: 60, tags: ["posts"] }
+);
+
+/** Total published posts carrying an exact tag (same `where` as getPostsByTag). */
+export const countPostsByTag = unstable_cache(
+  async (tag: string): Promise<number> => prisma.posts.count({ where: tagWhere(tag) }),
+  ["posts-by-tag-count"],
+  { revalidate: 60, tags: ["posts"] }
 );

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import LikeButton from "@/components/like-button";
+import TagChips from "@/components/tag-chips";
 import type { HomePost } from "@/lib/types";
 
 /**
@@ -30,6 +31,7 @@ function ViewPostCard({ post }: { post: HomePost }) {
         <p className="w-full text-left text-lg break-all whitespace-pre-line">
           {post.description && post.description}
         </p>
+        <TagChips tags={post.tags} link={false} className="justify-center" />
         <LikeButton post={post} />
       </CardContent>
     </Card>

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { UploadIcon } from "lucide-react";
+import { UploadIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,19 @@ const initialData: DraftPost = {
   title: "",
   updatedAt: "",
   status: "DRAFT",
+  tags: [],
 };
+
+/**
+ * Normalize raw tag input into tags: splits on whitespace/commas, lowercases,
+ * drops a leading `#` and removes empties. Tags are stored without the `#`
+ * (it is only a display/search prefix), e.g. "#Anime #sci-fi" -> [anime, sci-fi].
+ */
+const splitTags = (raw: string): string[] =>
+  raw
+    .split(/[\s,]+/)
+    .map((tag) => tag.trim().toLowerCase().replace(/^#+/, ""))
+    .filter(Boolean);
 
 /**
  * Create / update post form, ported from the original PostFormCard.
@@ -36,7 +48,8 @@ function PostForm({ post, usage }: PostFormProps) {
   const router = useRouter();
   const dialog = usePostDialog();
   const [image, setImage] = useState<File | null>(null);
-  const [data, setData] = useState<DraftPost>(post ?? initialData);
+  const [data, setData] = useState<DraftPost>(post ? { ...initialData, ...post, tags: post.tags ?? [] } : initialData);
+  const [tagInput, setTagInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -47,11 +60,61 @@ function PostForm({ post, usage }: PostFormProps) {
     }));
   };
 
+  /** Add one or more tag chips (normalized, no duplicates). */
+  const addTags = (raw: string) => {
+    const next = splitTags(raw);
+    if (next.length === 0) return;
+    setData((prev) => {
+      const merged = [...prev.tags];
+      for (const tag of next) {
+        if (!merged.includes(tag)) merged.push(tag);
+      }
+      return { ...prev, tags: merged };
+    });
+  };
+
+  const removeTag = (tag: string) => {
+    setData((prev) => ({ ...prev, tags: prev.tags.filter((t) => t !== tag) }));
+  };
+
+  /** Typing or pasting a comma turns the text before it into a chip. */
+  const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value.includes(",")) {
+      const parts = value.split(",");
+      const last = parts.pop() ?? "";
+      parts.forEach((part) => addTags(part));
+      setTagInput(last);
+    } else {
+      setTagInput(value);
+    }
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addTags(tagInput);
+      setTagInput("");
+    } else if (e.key === "Backspace" && tagInput === "" && data.tags.length > 0) {
+      removeTag(data.tags[data.tags.length - 1]);
+    }
+  };
+
   /** Reset the form back to its initial empty state (after a create). */
   const resetForm = () => {
     setData(initialData);
+    setTagInput("");
     setImage(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  /** The tags to submit, including text still sitting in the input box. */
+  const collectTags = () => {
+    const merged = [...data.tags];
+    for (const tag of splitTags(tagInput)) {
+      if (!merged.includes(tag)) merged.push(tag);
+    }
+    return merged;
   };
 
   const handleSubmit = async () => {
@@ -62,6 +125,7 @@ function PostForm({ post, usage }: PostFormProps) {
     if (data.description) {
       formData.append("description", data.description);
     }
+    collectTags().forEach((tag) => formData.append("tags", tag));
     if (image) {
       formData.append("image", image);
     }
@@ -121,6 +185,44 @@ function PostForm({ post, usage }: PostFormProps) {
             value={data.description ?? ""}
             onChange={handleChange}
           />
+        </div>
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="post-tags">Tags</Label>
+          <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border p-2">
+            {data.tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-sm font-medium"
+              >
+                #{tag}
+                <button
+                  type="button"
+                  aria-label={`Remove tag ${tag}`}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => removeTag(tag)}
+                >
+                  <XIcon className="size-3.5" />
+                </button>
+              </span>
+            ))}
+            <Input
+              id="post-tags"
+              placeholder="Type a tag, then Enter or comma"
+              value={tagInput}
+              onChange={handleTagInputChange}
+              onKeyDown={handleTagKeyDown}
+              onBlur={() => {
+                addTags(tagInput);
+                setTagInput("");
+              }}
+              className="h-8 min-w-40 flex-1 border-0 shadow-none focus-visible:ring-0"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span>Up to 5 tags. Lowercase letters, numbers and hyphens, e.g.</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 font-medium">#anime</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 font-medium">#sci-fi</span>
+          </div>
         </div>
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="post-image">Upload an Image for Post</Label>

@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { HeartIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import PostTagsFooter from "@/components/post-tags-footer";
 import type { PublishedPost } from "@/lib/types";
 
 function PublishedPostCard({ post }: { post: PublishedPost }) {
@@ -36,9 +37,9 @@ function PublishedPostCard({ post }: { post: PublishedPost }) {
           </div>
         </div>
       </CardContent>
-      <CardFooter className="gap-1 p-4 pt-0 border-t border-border/50">
+      <PostTagsFooter tags={post.tags}>
         <p className="text-sm text-muted-foreground">Last updated - {post.updatedAt.slice(0, 10)}</p>
-      </CardFooter>
+      </PostTagsFooter>
     </Card>
   );
 }

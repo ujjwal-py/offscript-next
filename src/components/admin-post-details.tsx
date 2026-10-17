@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
+import TagChips from "@/components/tag-chips";
 import type { AdminPost } from "@/lib/types";
 
 /**
@@ -27,6 +28,7 @@ function AdminPostDetails({ post }: { post: AdminPost }) {
         </div>
       )}
       <p className="whitespace-pre-line">{post.description || "No description provided."}</p>
+      <TagChips tags={post.tags} link={false} />
     </div>
   );
 }

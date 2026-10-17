@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect } from "react";
 import { HeartIcon } from "lucide-react";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import PostTagsFooter from "@/components/post-tags-footer";
 import { useLikeStore } from "@/store/like-store";
 import type { OpenablePost } from "@/lib/types";
 
@@ -49,6 +50,7 @@ function PostCard({ post }: { post: OpenablePost }) {
         </div>
         <p className="line-clamp-3 text-sm text-left leading-relaxed text-muted-foreground">{post.description}</p>
       </CardContent>
+      <PostTagsFooter tags={post.tags} />
     </Card>
   );
 }

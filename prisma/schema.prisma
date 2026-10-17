@@ -33,6 +33,7 @@ model Posts {
   title       String
   description String?
   status      Status   @default(DRAFT)
+  tags        String[] @default([])
   author      User     @relation(fields: [authorId], references: [id])
   authorId    String
   imageUrl    String?

@@ -36,6 +36,7 @@ export interface BasePost {
   updatedAt: string; // ISO string
   imageUrl?: string | null;
   status: PostStatus;
+  tags: string[];
 }
 
 export interface HomePost extends BasePost {

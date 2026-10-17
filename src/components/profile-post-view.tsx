@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
+import TagChips from "@/components/tag-chips";
 import type { OpenablePost } from "@/lib/types";
 
 /**
@@ -19,6 +20,7 @@ function ProfilePostView({ post }: { post: OpenablePost }) {
           </div>
         )}
         <p className="text-base text-muted-foreground whitespace-pre-line text-left">{post.description}</p>
+        <TagChips tags={post.tags} link={false} className="justify-center" />
       </CardContent>
     </Card>
   );
