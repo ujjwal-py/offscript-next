@@ -34,7 +34,7 @@ function Navbar() {
             <Link href="/home" className={linkClass}>
               Home
             </Link>
-            {user && <Link href="/my-posts" className={linkClass}>Create</Link>}
+            {user && <Link href="/my-posts" className={linkClass}>Drafts</Link>}
           </div>
         </div>
 
@@ -72,7 +72,7 @@ function Navbar() {
                 {user ? (
                   <>
                     <DialogClose nativeButton={false} render={<Link href="/my-posts" className={linkClass} />}>
-                      Create
+                      Drafts
                     </DialogClose>
                     <DialogClose nativeButton={false} render={<Link href="/profile" className={linkClass} />}>
                       Profile

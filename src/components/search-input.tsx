@@ -10,7 +10,7 @@ import { useDebounce } from "@/hooks/use-debounce";
  * Debounced (300 ms) search input that writes the query into the URL as the
  * `q` search parameter, replacing the original Zustand option store.
  */
-function SearchInput({ initialQ }: { initialQ: string }) {
+function SearchInput({ initialQ, placeholder = "Search posts..." }: { initialQ: string; placeholder?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,7 +38,7 @@ function SearchInput({ initialQ }: { initialQ: string }) {
       <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         className="pl-9"
-        placeholder="Search posts..."
+        placeholder={placeholder}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />

@@ -332,6 +332,66 @@ export const countUserUnPublishedPosts = unstable_cache(
   { revalidate: 30, tags: ["user-posts"] }
 );
 
+/** Search the current user's DRAFT/PENDING/REJECTED posts by title (paginated). */
+export const searchUserUnPublishedPosts = unstable_cache<
+  (authorId: string, options: { q: string; page?: number }) => Promise<DraftPost[]>
+>(
+  async (authorId: string, options: { q: string; page?: number }): Promise<DraftPost[]> => {
+    const q = String(options.q || "").trim();
+    if (!q) {
+      throw new CustomError(400, "SEARCH_QUERY_REQUIRED", "Search query is required");
+    }
+
+    const paginate = Number.isFinite(options.page);
+    const offset = paginate ? Math.max((options.page as number) - 1, 0) * POSTS_PER_PAGE : 0;
+
+    const posts = await prisma.posts.findMany({
+      where: {
+        authorId: authorId,
+        title: { contains: q, mode: "insensitive" },
+        status: { in: ["DRAFT", "PENDING", "REJECTED"] },
+      },
+      ...(paginate ? { skip: offset, take: POSTS_PER_PAGE } : {}),
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        updatedAt: true,
+        status: true,
+        Likes: {
+          select: {
+            userId: true,
+            postId: true,
+          },
+        },
+        imageUrl: true,
+      },
+    });
+
+    return posts.map((post) => ({ ...post, updatedAt: post.updatedAt.toISOString() }));
+  },
+  ["user-drafts-search"],
+  { revalidate: 30, tags: ["user-posts"] }
+);
+
+/** Total matching DRAFT/PENDING/REJECTED posts for a user (for the page count). */
+export const countSearchUserUnPublishedPosts = unstable_cache(
+  async (authorId: string, q: string): Promise<number> => {
+    const query = String(q || "").trim();
+    if (!query) return 0;
+    return prisma.posts.count({
+      where: {
+        authorId: authorId,
+        title: { contains: query, mode: "insensitive" },
+        status: { in: ["DRAFT", "PENDING", "REJECTED"] },
+      },
+    });
+  },
+  ["user-drafts-search-count"],
+  { revalidate: 30, tags: ["user-posts"] }
+);
+
 /** GET /v1/user/posts/published — current user's published posts. */
 export const userPublishedPosts = unstable_cache<
   (
