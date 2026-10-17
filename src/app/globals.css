@@ -189,6 +189,11 @@
     @apply transition-all duration-200 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/30;
   }
 
+  /* Preserve line breaks in toast descriptions (e.g. validation errors) */
+  [data-sonner-toast] [data-description] {
+    white-space: pre-line;
+  }
+
   /* Focus visible styles */
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;

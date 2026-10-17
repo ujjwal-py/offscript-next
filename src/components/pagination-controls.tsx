@@ -13,12 +13,12 @@ import type { OrderTypes, SortTypes } from "@/lib/types";
 
 type PaginationControlsProps = {
   currentPage: number;
-  /** Total number of pages (the original used a fixed 10 pages) */
-  totalPages?: number;
+  /** Total number of pages, derived from the number of matching posts */
+  totalPages: number;
   /** Current feed options, preserved across page links */
   q?: string;
-  sortBy: SortTypes;
-  order: OrderTypes;
+  sortBy?: SortTypes;
+  order?: OrderTypes;
 };
 
 /**
@@ -27,7 +27,7 @@ type PaginationControlsProps = {
  */
 function PaginationControls({
   currentPage,
-  totalPages = 10,
+  totalPages,
   q,
   sortBy,
   order,
@@ -35,11 +35,9 @@ function PaginationControls({
   const pathname = usePathname();
 
   const pageHref = (page: number) => {
-    const query: Record<string, string> = {
-      sort_by: sortBy,
-      order,
-      page: String(page),
-    };
+    const query: Record<string, string> = { page: String(page) };
+    if (sortBy) query.sort_by = sortBy;
+    if (order) query.order = order;
     if (q) query.q = q;
     return { pathname, query };
   };

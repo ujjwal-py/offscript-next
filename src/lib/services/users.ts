@@ -55,7 +55,7 @@ export async function logIn(body: UserBodyInput): Promise<{ user: AuthUserInfo; 
     },
   });
   if (!user) {
-    throw new NotFoundError("Invalid Email or Password");
+    throw new UnauthorizedError("Invalid Email or Password");
   }
   const match = await bcrypt.compare(password, user.password);
   if (!match) {

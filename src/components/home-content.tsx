@@ -5,7 +5,7 @@ import SearchOptions from "@/components/search-options";
 import EmptyState from "@/components/empty-state";
 import PaginationControls from "@/components/pagination-controls";
 import { DeniedToast } from "@/components/denied-toast";
-import { getAllPosts, searchPublicPosts } from "@/lib/services/posts";
+import { countPublishedPosts, countSearchPublicPosts, getAllPosts, searchPublicPosts, POSTS_PER_PAGE } from "@/lib/services/posts";
 import type { HomePost, OrderTypes, SortTypes } from "@/lib/types";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -26,10 +26,17 @@ export function parseFeedSearchParams(searchParams: SearchParams) {
 export default async function HomeContent({ searchParams }: { searchParams: SearchParams }) {
   const { q, page, sortBy, order } = parseFeedSearchParams(searchParams);
   const denied = searchParams.denied === "1";
+  const searching = q.trim().length > 0;
 
-  const posts: HomePost[] = q.trim()
-    ? await searchPublicPosts({ q, sort_by: sortBy, order })
-    : await getAllPosts({ page, sort_by: sortBy, order });
+  // Count the matching posts first so we know how many pages exist, then
+  // clamp the requested page into that range.
+  const total = searching ? await countSearchPublicPosts(q) : await countPublishedPosts();
+  const totalPages = Math.max(1, Math.ceil(total / POSTS_PER_PAGE));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+
+  const posts: HomePost[] = searching
+    ? await searchPublicPosts({ q, sort_by: sortBy, order, page: currentPage })
+    : await getAllPosts({ page: currentPage, sort_by: sortBy, order });
 
   return (
     <div className="flex min-h-screen flex-col bg-background px-4 md:px-8">
@@ -54,12 +61,15 @@ export default async function HomeContent({ searchParams }: { searchParams: Sear
           <EmptyState />
         )}
 
-        <PaginationControls
-          currentPage={page}
-          q={q}
-          sortBy={sortBy}
-          order={order}
-        />
+        {totalPages > 1 && (
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            q={q}
+            sortBy={sortBy}
+            order={order}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -37,6 +37,7 @@ function PostForm({ post, usage }: PostFormProps) {
   const dialog = usePostDialog();
   const [image, setImage] = useState<File | null>(null);
   const [data, setData] = useState<DraftPost>(post ?? initialData);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -44,6 +45,13 @@ function PostForm({ post, usage }: PostFormProps) {
       ...prev,
       [name]: value,
     }));
+  };
+
+  /** Reset the form back to its initial empty state (after a create). */
+  const resetForm = () => {
+    setData(initialData);
+    setImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async () => {
@@ -60,6 +68,7 @@ function PostForm({ post, usage }: PostFormProps) {
     try {
       if (usage === "create") {
         await apiFetch("/post", { method: "POST", body: formData });
+        resetForm();
       } else {
         await apiFetch(`/posts/${data.id}`, { method: "PUT", body: formData });
       }
@@ -120,6 +129,7 @@ function PostForm({ post, usage }: PostFormProps) {
               <UploadIcon className="size-4" /> Upload file
               <input
                 id="post-image"
+                ref={fileInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"

@@ -6,8 +6,15 @@ import ProfilePostView from "@/components/profile-post-view";
 import SearchOptions from "@/components/search-options";
 import EmptyState from "@/components/empty-state";
 import LogoutButton from "@/components/logout-button";
+import PaginationControls from "@/components/pagination-controls";
 import { getAuthUser } from "@/lib/auth";
-import { searchUserPosts, userPublishedPosts } from "@/lib/services/posts";
+import {
+  countSearchUserPosts,
+  countUserPublishedPosts,
+  searchUserPosts,
+  userPublishedPosts,
+  POSTS_PER_PAGE,
+} from "@/lib/services/posts";
 import { parseFeedSearchParams } from "@/components/home-content";
 import type { PublishedPost } from "@/lib/types";
 
@@ -25,11 +32,20 @@ export default async function ProfilePage({
   if (!user) redirect("/auth");
 
   const sp = await searchParams;
-  const { q, sortBy, order } = parseFeedSearchParams(sp);
+  const { q, page, sortBy, order } = parseFeedSearchParams(sp);
+  const searching = q.trim().length > 0;
 
-  const posts: PublishedPost[] = q.trim()
-    ? await searchUserPosts(user.id, { q, sort_by: sortBy, order })
-    : await userPublishedPosts(user.id, { sort_by: sortBy, order });
+  // Count the matching posts first so we know how many pages exist, then
+  // clamp the requested page into that range.
+  const total = searching
+    ? await countSearchUserPosts(user.id, q)
+    : await countUserPublishedPosts(user.id);
+  const totalPages = Math.max(1, Math.ceil(total / POSTS_PER_PAGE));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+
+  const posts: PublishedPost[] = searching
+    ? await searchUserPosts(user.id, { q, sort_by: sortBy, order, page: currentPage })
+    : await userPublishedPosts(user.id, { sort_by: sortBy, order, page: currentPage });
 
   return (
     <div className="min-h-screen">
@@ -53,6 +69,16 @@ export default async function ProfilePage({
         </ul>
       ) : (
         <EmptyState />
+      )}
+
+      {totalPages > 1 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          q={q}
+          sortBy={sortBy}
+          order={order}
+        />
       )}
     </div>
   );

@@ -10,6 +10,9 @@ import type { AdminPost, AdminStatus, DraftPost, HomePost, OrderTypes, Published
 
 type PostOrderBy = Prisma.PostsOrderByWithRelationInput;
 
+/** Number of posts shown per page (feed and search). */
+export const POSTS_PER_PAGE = 9;
+
 const likesOrderBy = (order: OrderTypes): PostOrderBy => ({ Likes: { _count: order } });
 const dateOrderBy = (order: OrderTypes): PostOrderBy => ({ updatedAt: order });
 
@@ -113,7 +116,7 @@ export const getAllPosts = unstable_cache<
     sort_by: SortTypes;
   }): Promise<HomePost[]> => {
     const page = options.page || 1;
-    const limit = 9;
+    const limit = POSTS_PER_PAGE;
     const offset = (page - 1) * limit;
     const orderBy = options.sort_by === "updatedAt" ? dateOrderBy(options.order) : likesOrderBy(options.order);
 
@@ -149,6 +152,13 @@ export const getAllPosts = unstable_cache<
     return posts.map((post) => ({ ...post, updatedAt: post.updatedAt.toISOString() }));
   },
   ["posts-feed"],
+  { revalidate: 60, tags: ["posts"] }
+);
+
+/** Total number of published posts (used to compute the feed's page count). */
+export const countPublishedPosts = unstable_cache(
+  async (): Promise<number> => prisma.posts.count({ where: { status: "PUBLISHED" } }),
+  ["posts-count"],
   { revalidate: 60, tags: ["posts"] }
 );
 
@@ -194,20 +204,28 @@ export const getSingleHomePost = unstable_cache<
   { revalidate: 60, tags: ["posts"] }
 );
 
-/** GET /v1/search/posts — case-insensitive title search over published posts. */
+/**
+ * GET /v1/search/posts — case-insensitive title search over published posts.
+ * Paginates only when `page` is provided (so the /v1 API keeps returning every
+ * match); the home feed always passes a page.
+ */
 export const searchPublicPosts = unstable_cache<
-  (options: { q: string; order: OrderTypes; sort_by: SortTypes }) => Promise<HomePost[]>
+  (options: { q: string; order: OrderTypes; sort_by: SortTypes; page?: number }) => Promise<HomePost[]>
 >(
   async (options: {
     q: string;
     order: OrderTypes;
     sort_by: SortTypes;
+    page?: number;
   }): Promise<HomePost[]> => {
     const q = String(options.q || "").trim();
     if (!q) {
       throw new CustomError(400, "SEARCH_QUERY_REQUIRED", "Search query is required");
     }
     const orderBy = options.sort_by === "likes" ? likesOrderBy(options.order) : dateOrderBy(options.order);
+
+    const paginate = Number.isFinite(options.page);
+    const offset = paginate ? Math.max((options.page as number) - 1, 0) * POSTS_PER_PAGE : 0;
 
     const posts = await prisma.posts.findMany({
       where: {
@@ -217,6 +235,7 @@ export const searchPublicPosts = unstable_cache<
         },
         status: "PUBLISHED",
       },
+      ...(paginate ? { skip: offset, take: POSTS_PER_PAGE } : {}),
       orderBy,
       select: {
         id: true,
@@ -245,11 +264,30 @@ export const searchPublicPosts = unstable_cache<
   { revalidate: 60, tags: ["posts"] }
 );
 
+/** Total published posts matching a title search (for the page count). */
+export const countSearchPublicPosts = unstable_cache(
+  async (q: string): Promise<number> => {
+    const query = String(q || "").trim();
+    if (!query) return 0;
+    return prisma.posts.count({
+      where: {
+        title: { contains: query, mode: "insensitive" },
+        status: "PUBLISHED",
+      },
+    });
+  },
+  ["posts-search-count"],
+  { revalidate: 60, tags: ["posts"] }
+);
+
 /** GET /v1/user/posts/unpublished — current user's DRAFT/PENDING/REJECTED posts. */
 export const userUnPublishedPosts = unstable_cache<
-  (authorId: string) => Promise<DraftPost[]>
+  (authorId: string, page?: number) => Promise<DraftPost[]>
 >(
-  async (authorId: string): Promise<DraftPost[]> => {
+  async (authorId: string, page?: number): Promise<DraftPost[]> => {
+    const paginate = Number.isFinite(page);
+    const offset = paginate ? Math.max((page as number) - 1, 0) * POSTS_PER_PAGE : 0;
+
     const posts = await prisma.posts.findMany({
       where: {
         authorId: authorId,
@@ -257,6 +295,7 @@ export const userUnPublishedPosts = unstable_cache<
           in: ["DRAFT", "PENDING", "REJECTED"],
         },
       },
+      ...(paginate ? { skip: offset, take: POSTS_PER_PAGE } : {}),
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -280,21 +319,41 @@ export const userUnPublishedPosts = unstable_cache<
   { revalidate: 30, tags: ["user-posts"] }
 );
 
+/** Total DRAFT/PENDING/REJECTED posts for a user (for the page count). */
+export const countUserUnPublishedPosts = unstable_cache(
+  async (authorId: string): Promise<number> =>
+    prisma.posts.count({
+      where: {
+        authorId: authorId,
+        status: { in: ["DRAFT", "PENDING", "REJECTED"] },
+      },
+    }),
+  ["user-drafts-count"],
+  { revalidate: 30, tags: ["user-posts"] }
+);
+
 /** GET /v1/user/posts/published — current user's published posts. */
 export const userPublishedPosts = unstable_cache<
-  (authorId: string, options: { order: OrderTypes; sort_by: SortTypes }) => Promise<PublishedPost[]>
+  (
+    authorId: string,
+    options: { order: OrderTypes; sort_by: SortTypes; page?: number }
+  ) => Promise<PublishedPost[]>
 >(
   async (
     authorId: string,
-    options: { order: OrderTypes; sort_by: SortTypes }
+    options: { order: OrderTypes; sort_by: SortTypes; page?: number }
   ): Promise<PublishedPost[]> => {
     const orderBy = options.sort_by === "updatedAt" ? dateOrderBy(options.order) : likesOrderBy(options.order);
+
+    const paginate = Number.isFinite(options.page);
+    const offset = paginate ? Math.max((options.page as number) - 1, 0) * POSTS_PER_PAGE : 0;
 
     const posts = await prisma.posts.findMany({
       where: {
         authorId: authorId,
         status: "PUBLISHED",
       },
+      ...(paginate ? { skip: offset, take: POSTS_PER_PAGE } : {}),
       orderBy,
       select: {
         id: true,
@@ -317,19 +376,33 @@ export const userPublishedPosts = unstable_cache<
   { revalidate: 60, tags: ["user-posts", "posts"] }
 );
 
+/** Total published posts for a user (for the page count). */
+export const countUserPublishedPosts = unstable_cache(
+  async (authorId: string): Promise<number> =>
+    prisma.posts.count({ where: { authorId: authorId, status: "PUBLISHED" } }),
+  ["user-published-count"],
+  { revalidate: 60, tags: ["user-posts", "posts"] }
+);
+
 /** GET /v1/user/search/posts — title search within the user's published posts. */
 export const searchUserPosts = unstable_cache<
-  (authorId: string, options: { q: string; order: OrderTypes; sort_by: SortTypes }) => Promise<PublishedPost[]>
+  (
+    authorId: string,
+    options: { q: string; order: OrderTypes; sort_by: SortTypes; page?: number }
+  ) => Promise<PublishedPost[]>
 >(
   async (
     authorId: string,
-    options: { q: string; order: OrderTypes; sort_by: SortTypes }
+    options: { q: string; order: OrderTypes; sort_by: SortTypes; page?: number }
   ): Promise<PublishedPost[]> => {
     const q = String(options.q || "").trim();
     if (!q) {
       throw new CustomError(400, "SEARCH_QUERY_REQUIRED", "Search query is required");
     }
     const orderBy = options.sort_by === "updatedAt" ? dateOrderBy(options.order) : likesOrderBy(options.order);
+
+    const paginate = Number.isFinite(options.page);
+    const offset = paginate ? Math.max((options.page as number) - 1, 0) * POSTS_PER_PAGE : 0;
 
     const posts = await prisma.posts.findMany({
       where: {
@@ -340,6 +413,7 @@ export const searchUserPosts = unstable_cache<
         },
         status: "PUBLISHED",
       },
+      ...(paginate ? { skip: offset, take: POSTS_PER_PAGE } : {}),
       orderBy,
       select: {
         id: true,
@@ -359,6 +433,23 @@ export const searchUserPosts = unstable_cache<
     }));
   },
   ["user-search"],
+  { revalidate: 60, tags: ["user-posts", "posts"] }
+);
+
+/** Total user posts matching a title search (for the page count). */
+export const countSearchUserPosts = unstable_cache(
+  async (authorId: string, q: string): Promise<number> => {
+    const query = String(q || "").trim();
+    if (!query) return 0;
+    return prisma.posts.count({
+      where: {
+        authorId: authorId,
+        title: { contains: query, mode: "insensitive" },
+        status: "PUBLISHED",
+      },
+    });
+  },
+  ["user-search-count"],
   { revalidate: 60, tags: ["user-posts", "posts"] }
 );
 
