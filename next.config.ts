@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Opt the app into security-focused upgrade nudges for coding agents.
+    agentUpgrade: "security",
+  },
   images: {
     // Post images live in Supabase Storage (any project URL) or /public/uploads.
     remotePatterns: [{ protocol: "https", hostname: "**" }],
