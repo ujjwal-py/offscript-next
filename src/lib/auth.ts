@@ -59,7 +59,7 @@ export const getAuthUser = cache(async (): Promise<AuthUserInfo | null> => {
       where: { id: payload.user_id },
       select: {
         id: true,
-        name: true,
+        username: true,
         email: true,
         createdAt: true,
         role: true,
@@ -68,7 +68,7 @@ export const getAuthUser = cache(async (): Promise<AuthUserInfo | null> => {
     if (!user) return null;
     return {
       id: user.id,
-      name: user.name,
+      username: user.username,
       email: user.email,
       role: user.role,
       createdAt: user.createdAt.toISOString(),

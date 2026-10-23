@@ -1,38 +1,38 @@
-export type PostStatus = "DRAFT" | "PENDING" | "PUBLISHED" | "REJECTED" | "REMOVED";
+export type PostStatus = "DRAFT" | "PENDING" | "PUBLISHED" | "REJECTED";
 
-export type AdminStatus = Extract<PostStatus, "PUBLISHED" | "REJECTED" | "REMOVED">;
+export type AdminStatus = Extract<PostStatus, "PUBLISHED" | "REJECTED">;
 
 export type UserRole = "USER" | "ADMIN";
 
 export interface Likes {
   userId: string;
-  postId: number;
+  postId: string;
 }
 
 export interface Author {
-  name?: string | null;
+  username: string;
   email: string;
 }
 
 export interface AdminAuthor {
-  id?: string;
-  name?: string | null;
+  id: string;
+  username: string;
   email: string;
 }
 
 /** The authenticated user as returned by /v1/me and used across the client */
 export type AuthUserInfo = {
   id: string;
-  name: string | null;
+  username: string;
   email: string;
   role: UserRole;
   createdAt: string; // ISO string
 };
 
 export interface BasePost {
-  id: number;
+  id: string;
   title: string;
-  description?: string | null;
+  description: string;
   updatedAt: string; // ISO string
   imageUrl?: string | null;
   status: PostStatus;

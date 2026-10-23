@@ -15,11 +15,12 @@ datasource db {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
-  password   String
-  name       String?
-  posts      Posts[]
-  Likes      Likes[]
-  role       Role     @default(USER)
+  password  String
+  // name       String?
+  username  String   @unique
+  posts     Posts[]
+  Likes     Likes[]
+  role      Role     @default(USER)
   createdAt DateTime @default(now())
 }
 
@@ -29,9 +30,9 @@ enum Role {
 }
 
 model Posts {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid())
   title       String
-  description String?
+  description String
   status      Status   @default(DRAFT)
   tags        String[] @default([])
   author      User     @relation(fields: [authorId], references: [id])
@@ -46,7 +47,6 @@ enum Status {
   PENDING // when user applies for publishing
   PUBLISHED // admin or moderator approves
   REJECTED // admin rejects
-  REMOVED // admin deleted
 }
 
 model Likes {
@@ -54,7 +54,7 @@ model Likes {
   user   User   @relation(fields: [userId], references: [id])
   userId String
   post   Posts  @relation(fields: [postId], references: [id])
-  postId Int
+  postId String
 
   @@unique([userId, postId])
 }

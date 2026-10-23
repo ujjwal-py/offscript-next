@@ -10,7 +10,7 @@ import type { UserBody as UserBodyInput } from "@/lib/validation";
  * Returns the public user shape plus a signed JWT for the auth cookie.
  */
 export async function createUser(body: UserBodyInput): Promise<{ user: AuthUserInfo; token: string }> {
-  const { name, email, password } = body;
+  const { username, email, password } = body;
 
   const isExist = await prisma.user.findUnique({
     where: {
@@ -24,7 +24,7 @@ export async function createUser(body: UserBodyInput): Promise<{ user: AuthUserI
   const hashedPassword = await bcrypt.hash(password, 12);
   const newUser = await prisma.user.create({
     data: {
-      name,
+      username,
       email,
       password: hashedPassword,
     },
@@ -35,7 +35,7 @@ export async function createUser(body: UserBodyInput): Promise<{ user: AuthUserI
     token,
     user: {
       id: newUser.id,
-      name: newUser.name,
+      username: newUser.username,
       email: newUser.email,
       createdAt: newUser.createdAt.toISOString(),
       role: newUser.role,
@@ -67,7 +67,7 @@ export async function logIn(body: UserBodyInput): Promise<{ user: AuthUserInfo; 
     token,
     user: {
       id: user.id,
-      name: user.name,
+      username: user.username,
       email: user.email,
       createdAt: user.createdAt.toISOString(),
       role: user.role,
@@ -86,7 +86,7 @@ export async function getMeUser(id: string | undefined): Promise<AuthUserInfo> {
     },
     select: {
       id: true,
-      name: true,
+      username: true,
       email: true,
       createdAt: true,
       role: true,
@@ -97,7 +97,7 @@ export async function getMeUser(id: string | undefined): Promise<AuthUserInfo> {
   }
   return {
     id: user.id,
-    name: user.name,
+    username: user.username,
     email: user.email,
     createdAt: user.createdAt.toISOString(),
     role: user.role,

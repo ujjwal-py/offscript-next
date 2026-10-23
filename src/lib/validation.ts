@@ -28,14 +28,14 @@ export const tagsSchema = z
   });
 
 export const UserSchema = z.object({
-  name: z.string().trim().toLowerCase().optional(),
+  username: z.string().trim().toLowerCase(),
   email: z.string().trim().toLowerCase().email("Invalid Email address"),
   password: z.string().trim().min(8, "Password should be minimum of 8 characters"),
 });
 
 export const createPostSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100, "Title Can't exceed 100 characters"),
-  description: z.string().trim().max(10000, "Desc can't exceed 10000 characters").optional(),
+  description: z.string().trim().max(10000, "Desc can't exceed 10000 characters"),
   imageUrl: z.string().url("Image URL must be a valid URL").optional(),
   status: z.enum(["DRAFT", "PENDING"]),
   tags: tagsSchema,
@@ -50,11 +50,11 @@ export const updatePostSchema = z.object({
 });
 
 export const adminPostSchema = z.object({
-  status: z.enum(["PUBLISHED", "REJECTED", "REMOVED"]),
+  status: z.enum(["PUBLISHED", "REJECTED"]),
 });
 
 export const likesSchema = z.object({
-  postId: z.number().int().positive("Post ID must be a positive integer"),
+  postId: z.uuid("Post id must be a valid uuid")
 });
 
 export type UserBody = z.infer<typeof UserSchema>;

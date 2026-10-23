@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
@@ -32,13 +31,13 @@ const tagWhere = (tag: string): Prisma.PostsWhereInput => ({
   tags: { has: tag.trim().toLowerCase() },
 });
 
-const parseOrderId = (id: string): number => {
-  const parsed = parseInt(id, 10);
-  if (!Number.isInteger(parsed)) {
-    throw new CustomError(400, "INVALID_POST_ID", "Post id must be an integer");
-  }
-  return parsed;
-};
+// const parseOrderId = (id: string): number => {
+//   const parsed = parseInt(id, 10);
+//   if (!Number.isInteger(parsed)) {
+//     throw new CustomError(400, "INVALID_POST_ID", "Post id must be an integer");
+//   }
+//   return parsed;
+// };
 
 /** POST /v1/post — create a post (optionally with an uploaded image). */
 export async function createPost(
@@ -81,11 +80,10 @@ export async function editPost(
   body: UpdatePostBody,
   image: PostImageFile | null
 ): Promise<DraftPost> {
-  const postId = parseOrderId(id);
   const { title, description, status, tags } = body;
 
   const existingPost = await prisma.posts.findUnique({
-    where: { id: postId, authorId },
+    where: { id, authorId },
     select: { imageUrl: true },
   });
   if (!existingPost) {
@@ -96,7 +94,7 @@ export async function editPost(
 
   try {
     const post = await prisma.posts.update({
-      where: { id: postId, authorId },
+      where: { id, authorId },
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
@@ -154,7 +152,7 @@ export const getAllPosts = unstable_cache<
         imageUrl: true,
         author: {
           select: {
-            name: true,
+            username: true,
             email: true,
           },
         },
@@ -186,12 +184,10 @@ export const getSingleHomePost = unstable_cache<
   (id: string) => Promise<HomePost | null>
 >(
   async (id: string): Promise<HomePost | null> => {
-    const postId = Number(id);
-    if (!Number.isInteger(postId)) return null;
 
     const post = await prisma.posts.findUnique({
       where: {
-        id: postId,
+        id,
         status: "PUBLISHED",
       },
       select: {
@@ -203,7 +199,7 @@ export const getSingleHomePost = unstable_cache<
         imageUrl: true,
         author: {
           select: {
-            name: true,
+            username: true,
             email: true,
           },
         },
@@ -263,7 +259,7 @@ export const searchPublicPosts = unstable_cache<
         Likes: true,
         author: {
           select: {
-            name: true,
+            username: true,
             email: true,
           },
         },
@@ -532,11 +528,10 @@ export const countSearchUserPosts = unstable_cache(
 
 /** DELETE /v1/admin/posts/:id — admin deletes any post (likes first). */
 export async function deletePostAdmin(id: string): Promise<{ message: string }> {
-  const postId = parseOrderId(id);
 
   const existingPost = await prisma.posts.findUnique({
     where: {
-      id: postId,
+      id,
     },
   });
   if (!existingPost) {
@@ -545,13 +540,13 @@ export async function deletePostAdmin(id: string): Promise<{ message: string }> 
 
   await prisma.likes.deleteMany({
     where: {
-      postId: postId,
+      id,
     },
   });
 
   await prisma.posts.delete({
     where: {
-      id: postId,
+      id,
     },
   });
 
@@ -563,11 +558,10 @@ export async function deletePostAdmin(id: string): Promise<{ message: string }> 
 
 /** DELETE /v1/post/:id — user deletes their own post. */
 export async function deletePostUser(authorId: string, id: string): Promise<{ message: string }> {
-  const postId = parseOrderId(id);
 
   const existingPost = await prisma.posts.findUnique({
     where: {
-      id: postId,
+      id,
       authorId,
     },
   });
@@ -577,13 +571,13 @@ export async function deletePostUser(authorId: string, id: string): Promise<{ me
 
   await prisma.likes.deleteMany({
     where: {
-      postId: postId,
+      id,
     },
   });
 
   await prisma.posts.delete({
     where: {
-      id: postId,
+      id,
       authorId,
     },
   });
@@ -595,11 +589,10 @@ export async function deletePostUser(authorId: string, id: string): Promise<{ me
 
 /** POST /v1/posts/:id/like — like a published post once. */
 export async function likePost(userId: string, id: string): Promise<{ message: string }> {
-  const postId = parseOrderId(id);
 
   const validPost = await prisma.posts.findUnique({
     where: {
-      id: postId,
+      id,
       status: "PUBLISHED",
     },
   });
@@ -610,7 +603,7 @@ export async function likePost(userId: string, id: string): Promise<{ message: s
     where: {
       userId_postId: {
         userId,
-        postId,
+        postId: id,
       },
     },
   });
@@ -619,7 +612,7 @@ export async function likePost(userId: string, id: string): Promise<{ message: s
   }
   await prisma.likes.create({
     data: {
-      postId,
+      postId: id,
       userId,
     },
   });
@@ -630,11 +623,10 @@ export async function likePost(userId: string, id: string): Promise<{ message: s
 
 /** DELETE /v1/posts/:id/dislike — remove the current user's like. */
 export async function dislikePost(userId: string, id: string): Promise<{ message: string }> {
-  const postId = parseOrderId(id);
 
   const validPost = await prisma.posts.findUnique({
     where: {
-      id: postId,
+      id,
       status: "PUBLISHED",
     },
   });
@@ -645,7 +637,7 @@ export async function dislikePost(userId: string, id: string): Promise<{ message
     where: {
       userId_postId: {
         userId,
-        postId,
+        postId: id,
       },
     },
   });
@@ -656,7 +648,7 @@ export async function dislikePost(userId: string, id: string): Promise<{ message
     where: {
       userId_postId: {
         userId,
-        postId,
+        postId: id,
       },
     },
   });
@@ -667,7 +659,6 @@ export async function dislikePost(userId: string, id: string): Promise<{ message
 
 /** PUT /v1/admin/posts/:id/status — approve / reject / remove a post. */
 export async function editPostStatusAdmin(id: string, status: AdminStatus): Promise<{ message: string }> {
-  const postId = parseOrderId(id);
 
   if (!["PUBLISHED", "REJECTED", "REMOVED"].includes(status)) {
     throw new CustomError(400, "INVALID_STATUS", "Invalid admin post status");
@@ -675,7 +666,7 @@ export async function editPostStatusAdmin(id: string, status: AdminStatus): Prom
 
   await prisma.posts.update({
     where: {
-      id: postId,
+      id,
     },
     data: {
       status,
@@ -709,7 +700,7 @@ export const getPendingPostsAdmin = unstable_cache<
         author: {
           select: {
             id: true,
-            name: true,
+            username: true,
             email: true,
           },
         },
@@ -753,7 +744,7 @@ export const getPostsByTag = unstable_cache<
         imageUrl: true,
         author: {
           select: {
-            name: true,
+            username: true,
             email: true,
           },
         },
