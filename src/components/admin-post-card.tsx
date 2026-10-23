@@ -40,6 +40,21 @@ function AdminPostCard({ post, pending = false }: AdminPostCardProps) {
     }
   };
 
+  /** Published posts are deleted outright (there is no REMOVED status). */
+  const handleRemove = async () => {
+    if (changing) return;
+    setChanging(true);
+    try {
+      await apiFetch(`/admin/posts/${post.id}`, { method: "DELETE" });
+      toast.success("Post removed");
+      router.refresh();
+    } catch {
+      // The api client already displayed the error toast.
+    } finally {
+      setChanging(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "PENDING":
@@ -48,8 +63,6 @@ function AdminPostCard({ post, pending = false }: AdminPostCardProps) {
         return "bg-success/15 text-success border border-success/20";
       case "REJECTED":
         return "bg-destructive/15 text-destructive border border-destructive/20";
-      case "REMOVED":
-        return "bg-muted text-muted-foreground border border-border";
       default:
         return "bg-muted text-muted-foreground border border-border";
     }
@@ -60,7 +73,7 @@ function AdminPostCard({ post, pending = false }: AdminPostCardProps) {
       <CardContent className="gap-2 p-4">
         <p className="text-lg font-semibold truncate">{post.title}</p>
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm text-muted-foreground">By {post.author.name || post.author.email}</p>
+          <p className="text-sm text-muted-foreground">By {post.author.username || post.author.email}</p>
           <Badge className={getStatusBadge(post.status)}>{post.status}</Badge>
         </div>
       </CardContent>
@@ -99,7 +112,7 @@ function AdminPostCard({ post, pending = false }: AdminPostCardProps) {
               variant="outline"
               className="text-destructive hover:bg-destructive/10 focus-ring"
               disabled={changing}
-              onClick={() => changeStatus("REMOVED")}
+              onClick={handleRemove}
             >
               Remove
             </Button>

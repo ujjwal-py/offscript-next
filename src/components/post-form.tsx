@@ -22,8 +22,9 @@ type PostFormProps = {
 };
 
 const initialData: DraftPost = {
-  id: -1,
+  id: "",
   title: "",
+  description: "",
   updatedAt: "",
   status: "DRAFT",
   tags: [],

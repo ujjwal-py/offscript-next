@@ -20,7 +20,7 @@ function AdminPostDetails({ post }: { post: AdminPost }) {
       </Badge>
       <h2 className="text-center text-2xl font-bold md:text-3xl">{post.title}</h2>
       <p className="text-center text-muted-foreground">
-        By {post.author.name || post.author.email}
+        By {post.author.username || post.author.email}
       </p>
       {post.imageUrl && (
         <div className="relative h-[55vh] w-full">

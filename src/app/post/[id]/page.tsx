@@ -40,7 +40,7 @@ export default async function PostPage({ params }: Props) {
           {post.title}
         </h1>
         <p className="w-full text-center text-base font-semibold wrap-anywhere text-muted-foreground">
-          {post.author.name || "user"} - {post.author.email}
+          {post.author.username || "user"} - {post.author.email}
         </p>
         {post.imageUrl && (
           <div className="relative h-[35vh] max-h-[55vh] w-full md:h-[55vh]">

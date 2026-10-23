@@ -15,7 +15,7 @@ function ViewPostCard({ post }: { post: HomePost }) {
       <CardContent className="flex w-full flex-col items-center justify-center gap-3 pt-2 md:gap-4 md:pt-4">
         <h1 className="w-full text-center text-xl font-bold break-all md:text-4xl">{post.title}</h1>
         <p className="w-full text-center text-base font-semibold break-all text-muted-foreground">
-          {post.author.name || "user"} - {post.author.email}
+          {post.author.username || "user"} - {post.author.email}
         </p>
         {post.imageUrl && (
           <div className="relative w-full aspect-post-detail max-h-[70vh]">

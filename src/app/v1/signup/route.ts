@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createUser } from "@/lib/services/users";
 import { errorResponse, validateBody } from "@/lib/route-utils";
-import { UserSchema } from "@/lib/validation";
+import { SignUpSchema } from "@/lib/validation";
 import { config } from "@/lib/config";
 
 
@@ -11,7 +11,7 @@ import { config } from "@/lib/config";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const data = validateBody(UserSchema, body);
+    const data = validateBody(SignUpSchema, body);
     const { user, token } = await createUser(data);
 
     const cookieStore = await cookies();

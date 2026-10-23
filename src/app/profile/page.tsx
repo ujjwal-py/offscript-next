@@ -50,7 +50,7 @@ export default async function ProfilePage({
   return (
     <div className="min-h-screen">
       <div className="m-2 flex items-center justify-between gap-4 rounded-lg border-2 p-4">
-        <p className="text-center text-2xl font-bold">Welcome, {user.name || "user"}</p>
+        <p className="text-center text-2xl font-bold">Welcome, {user.username || "user"}</p>
         <LogoutButton />
       </div>
 

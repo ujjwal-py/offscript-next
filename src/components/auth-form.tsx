@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetch } from "@/lib/api";
 
-type SignInBody = {
-  name?: string;
+type AuthFormData = {
+  username: string;
   email: string;
   password: string;
 };
@@ -24,8 +24,8 @@ type Mode = "signin" | "signup";
 function AuthForm() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("signup");
-  const [formData, setFormData] = useState<SignInBody>({
-    name: "",
+  const [formData, setFormData] = useState<AuthFormData>({
+    username: "",
     email: "",
     password: "",
   });
@@ -42,13 +42,23 @@ function AuthForm() {
     e.preventDefault();
     try {
       if (mode === "signin") {
-        await apiFetch("/signin", { method: "POST", body: formData });
+        await apiFetch("/signin", {
+          method: "POST",
+          body: { email: formData.email, password: formData.password },
+        });
       } else {
-        await apiFetch("/signup", { method: "POST", body: formData });
+        await apiFetch("/signup", {
+          method: "POST",
+          body: {
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+          },
+        });
       }
 
       setFormData({
-        name: "",
+        username: "",
         email: "",
         password: "",
       });
@@ -77,14 +87,15 @@ function AuthForm() {
           <CardContent className="flex w-full flex-col gap-4">
             {mode === "signup" && (
               <div className="flex w-full flex-col gap-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="name"
+                  id="username"
                   type="text"
-                  name="name"
-                  value={formData.name}
-                  placeholder="Enter your name"
+                  name="username"
+                  value={formData.username}
+                  placeholder="Enter your username"
                   onChange={handleChange}
+                  required
                 />
               </div>
             )}

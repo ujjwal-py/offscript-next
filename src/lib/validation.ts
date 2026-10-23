@@ -27,8 +27,13 @@ export const tagsSchema = z
     message: "Tags must be 2-20 characters using lowercase letters, numbers or hyphens",
   });
 
-export const UserSchema = z.object({
-  username: z.string().trim().toLowerCase(),
+export const SignUpSchema = z.object({
+  username: z.string().trim().toLowerCase().min(1, "Username is required"),
+  email: z.string().trim().toLowerCase().email("Invalid Email address"),
+  password: z.string().trim().min(8, "Password should be minimum of 8 characters"),
+});
+
+export const SignInSchema = z.object({
   email: z.string().trim().toLowerCase().email("Invalid Email address"),
   password: z.string().trim().min(8, "Password should be minimum of 8 characters"),
 });
@@ -57,7 +62,8 @@ export const likesSchema = z.object({
   postId: z.uuid("Post id must be a valid uuid")
 });
 
-export type UserBody = z.infer<typeof UserSchema>;
+export type SignUpBody = z.infer<typeof SignUpSchema>;
+export type SignInBody = z.infer<typeof SignInSchema>;
 export type NewPostBody = z.infer<typeof createPostSchema>;
 export type UpdatePostBody = z.infer<typeof updatePostSchema>;
 export type AdminPostBody = z.infer<typeof adminPostSchema>;

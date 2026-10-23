@@ -2,8 +2,8 @@ import { create } from "zustand";
 import type { Likes } from "@/lib/types";
 
 interface LikeState {
-  likesByPost: Record<number, Likes[]>;
-  setLikes: (postId: number, likes: Likes[]) => void;
+  likesByPost: Record<string, Likes[]>;
+  setLikes: (postId: string, likes: Likes[]) => void;
   addLike: (like: Likes) => void;
   removeLike: (like: Likes) => void;
 }

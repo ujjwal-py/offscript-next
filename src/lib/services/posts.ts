@@ -31,14 +31,6 @@ const tagWhere = (tag: string): Prisma.PostsWhereInput => ({
   tags: { has: tag.trim().toLowerCase() },
 });
 
-// const parseOrderId = (id: string): number => {
-//   const parsed = parseInt(id, 10);
-//   if (!Number.isInteger(parsed)) {
-//     throw new CustomError(400, "INVALID_POST_ID", "Post id must be an integer");
-//   }
-//   return parsed;
-// };
-
 /** POST /v1/post — create a post (optionally with an uploaded image). */
 export async function createPost(
   authorId: string,
@@ -538,9 +530,10 @@ export async function deletePostAdmin(id: string): Promise<{ message: string }> 
     throw new NotFoundError("Post not found");
   }
 
+  // convert this to transactions
   await prisma.likes.deleteMany({
     where: {
-      id,
+      postId: id,
     },
   });
 
@@ -571,7 +564,7 @@ export async function deletePostUser(authorId: string, id: string): Promise<{ me
 
   await prisma.likes.deleteMany({
     where: {
-      id,
+      postId: id,
     },
   });
 
@@ -657,10 +650,10 @@ export async function dislikePost(userId: string, id: string): Promise<{ message
   return { message: "Post disliked successfully" };
 }
 
-/** PUT /v1/admin/posts/:id/status — approve / reject / remove a post. */
+/** PUT /v1/admin/posts/:id/status — approve / reject a post. */
 export async function editPostStatusAdmin(id: string, status: AdminStatus): Promise<{ message: string }> {
 
-  if (!["PUBLISHED", "REJECTED", "REMOVED"].includes(status)) {
+  if (!["PUBLISHED", "REJECTED"].includes(status)) {
     throw new CustomError(400, "INVALID_STATUS", "Invalid admin post status");
   }
 

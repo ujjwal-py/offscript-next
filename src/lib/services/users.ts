@@ -1,15 +1,15 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { CustomError, NotFoundError, UnauthorizedError } from "@/lib/errors";
+import { CustomError, UnauthorizedError } from "@/lib/errors";
 import { signToken } from "@/lib/auth";
 import type { AuthUserInfo } from "@/lib/types";
-import type { UserBody as UserBodyInput } from "@/lib/validation";
+import type { SignInBody, SignUpBody } from "@/lib/validation";
 
 /**
  * Creates a new user (signup). Throws 409 UE409 if the email already exists.
  * Returns the public user shape plus a signed JWT for the auth cookie.
  */
-export async function createUser(body: UserBodyInput): Promise<{ user: AuthUserInfo; token: string }> {
+export async function createUser(body: SignUpBody): Promise<{ user: AuthUserInfo; token: string }> {
   const { username, email, password } = body;
 
   const isExist = await prisma.user.findUnique({
@@ -46,7 +46,7 @@ export async function createUser(body: UserBodyInput): Promise<{ user: AuthUserI
 /**
  * Signs a user in. Throws 404/401 "Invalid Email or Password" on failure.
  */
-export async function logIn(body: UserBodyInput): Promise<{ user: AuthUserInfo; token: string }> {
+export async function logIn(body: SignInBody): Promise<{ user: AuthUserInfo; token: string }> {
   const { email, password } = body;
 
   const user = await prisma.user.findUnique({

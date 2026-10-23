@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { logIn } from "@/lib/services/users";
 import { errorResponse, validateBody } from "@/lib/route-utils";
-import { UserSchema } from "@/lib/validation";
+import { SignInSchema } from "@/lib/validation";
 import { config } from "@/lib/config";
 /** POST /v1/signin — sign a user in and set the auth cookie */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const data = validateBody(UserSchema, body);
+    const data = validateBody(SignInSchema, body);
     const { user, token } = await logIn(data);
 
     const cookieStore = await cookies();
