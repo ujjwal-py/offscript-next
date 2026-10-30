@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Emit .next/standalone (server.js + traced node_modules) for the Docker image.
+  output: "standalone",
   experimental: {
     // Opt the app into security-focused upgrade nudges for coding agents.
     agentUpgrade: "security",

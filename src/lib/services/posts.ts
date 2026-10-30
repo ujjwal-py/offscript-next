@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { CustomError, NotFoundError } from "@/lib/errors";
 import { buildPostWhere } from "@/lib/search";
-import { deletePostImage, uploadPostImage } from "@/lib/supabase";
+import { deletePostImage, uploadPostImage } from "@/lib/storage";
 import type { PostImageFile } from "@/lib/route-utils";
 import type { NewPostBody, UpdatePostBody } from "@/lib/validation";
 import type { AdminPost, AdminStatus, DraftPost, HomePost, OrderTypes, PublishedPost, SortTypes } from "@/lib/types";
@@ -543,6 +543,12 @@ export async function deletePostAdmin(id: string): Promise<{ message: string }> 
     },
   });
 
+  // Remove the stored image after the row is gone; a failed unlink must not
+  // fail the request, but it should be visible in the logs.
+  await deletePostImage(existingPost.imageUrl).catch((error) => {
+    console.error("Failed to delete post image from disk", error);
+  });
+
   revalidateTag("posts", { expire: 0 });
   revalidateTag("user-posts", { expire: 0 });
   revalidateTag("admin-posts", { expire: 0 });
@@ -573,6 +579,10 @@ export async function deletePostUser(authorId: string, id: string): Promise<{ me
       id,
       authorId,
     },
+  });
+
+  await deletePostImage(existingPost.imageUrl).catch((error) => {
+    console.error("Failed to delete post image from disk", error);
   });
 
   revalidateTag("posts", { expire: 0 });

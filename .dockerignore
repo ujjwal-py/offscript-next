@@ -1,0 +1,36 @@
+# Build context hygiene: keep the image small and never bake secrets in.
+
+# dependencies / build output (reinstalled and regenerated inside the image)
+node_modules
+.next
+out
+build
+*.tsbuildinfo
+
+# local post images (the container keeps its own volume at /app/uploads)
+/uploads
+
+# generated Prisma client is produced by `prisma generate` during the build
+src/generated
+
+# local env files (passed as build arg / compose env instead)
+.env
+.env.*
+!.env.example
+
+# vcs / editor / os noise
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# not needed to build the app
+Dockerfile
+.dockerignore
+compose.yaml
+README.md
+PROJECT-FEATURES.md
+coverage
+public/uploads

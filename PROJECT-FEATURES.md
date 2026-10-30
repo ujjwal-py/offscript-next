@@ -11,7 +11,7 @@ Offscript is a full-stack social publishing platform built with Next.js. Users c
 - Admin moderation workflow for pending submissions
 - Public post feed with search, sorting, and pagination
 - Like and unlike functionality with optimistic UI updates
-- Supabase image uploads with validation and rollback cleanup
+- Local-disk image uploads with WebP compression, validation and rollback cleanup
 - Dark mode and warm cream light mode
 - Responsive desktop navigation and mobile sidebar navigation
 - Protected user and admin routes
@@ -215,18 +215,18 @@ Authenticated users can like and unlike published posts. Backend authentication,
 
 Zustand stores client-side like state so the UI updates immediately while the server remains the source of truth.
 
-### Supabase Storage
+### Image Storage
 
-Supabase Storage handles post images with:
+Post images are stored on the server's own disk:
 
-- JPEG, PNG, and WebP validation
-- A 5 MB upload limit
-- Server-side upload handling
-- Image URL persistence
-- Replacement-image cleanup
+- Any browser-displayable image libvips can decode (JPEG, PNG, WebP, GIF, AVIF, TIFF, SVG)
+- A 5 MB upload limit per request
+- Server-side re-encode to WebP, longest side capped at 1600 px, stored file kept under 900 KB
+- Relative `/uploads/<uuid>.webp` URLs persisted in the database
+- Replacement-image and delete-post cleanup on disk
 - Rollback cleanup when database writes fail
 
-Sensitive Supabase credentials remain server-side.
+Only local paths are ever removed; images stored by the previous provider are left untouched.
 
 ## UI and UX
 
@@ -253,7 +253,7 @@ Sensitive Supabase credentials remain server-side.
 | `jose` | JWT signing and verification |
 | `bcryptjs` | Password hashing |
 | Zod | Request validation |
-| Supabase Storage | Image storage |
+| sharp | Image compression (WebP) |
 | Zustand | Client-side optimistic state |
 | `next-themes` | Theme management |
 | Sonner | Toast notifications |
@@ -317,5 +317,6 @@ offscript-next/
 - Admin routes verify the `ADMIN` role.
 - Ownership checks prevent unauthorized post operations.
 - Passwords are stored using bcrypt hashes.
-- Sensitive database, JWT, and Supabase credentials remain server-side.
+- Sensitive database and JWT credentials remain server-side.
+- Uploaded files are re-encoded before they are stored, so no executable markup can be served back; stored paths are validated on read and delete.
 - Zod validation rejects malformed input before database operations.

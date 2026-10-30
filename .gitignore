@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which a fresh clone needs (README says `cp .env.example .env`)
+!.env.example
 
 # vercel
 .vercel
@@ -43,8 +45,13 @@ next-env.d.ts
 # prisma generated client (like the original server's src/generated)
 /src/generated/
 
-# uploaded images (dev artifacts; production uses Supabase storage)
+# uploaded images (post images now live on local disk; see UPLOAD_DIR)
+/uploads/
+# pre-migration images still served from here as a fallback
 /public/uploads/
+
+# backups written by scripts/backup.sh
+/backups/
 
 # editor / OS
 .idea/

@@ -35,13 +35,16 @@ offscript-next/
 │   ├── components/          # App components (post cards, dialogs, forms, ...)
 │   │   └── ui/              # shadcn/ui components
 │   ├── hooks/               # Custom hooks (useDebounce)
-│   ├── lib/                 # Config, auth, prisma, supabase, validation, services
+│   ├── lib/                 # Config, auth, prisma, storage, validation, services
 │   │   └── services/        # Controller logic shared by pages and route handlers
 │   ├── store/               # Zustand store (optimistic likes)
 │   ├── generated/prisma/    # Generated Prisma client (not committed)
 │   └── proxy.ts             # Optimistic route protection (my-posts, profile, admin)
 ├── next.config.ts
 ├── prisma.config.ts
+├── Dockerfile               # standalone build, dev, migrator and runner stages
+├── compose.yaml             # db + migrations + app (+ dev profile)
+├── .dockerignore
 └── .env.example
 ```
 
@@ -88,8 +91,10 @@ offscript-next/
 
 ### Media and validation
 
-- Image uploads stored in Supabase Storage (JPEG, PNG, WebP, 5 MB limit)
-- Rollback: uploaded images are deleted if the database write fails; replaced images are cleaned up on edit
+- Image uploads are re-encoded to WebP on the server and written to `UPLOAD_DIR` (default `uploads/`), then served at `/uploads/<uuid>.webp`
+- Uploads accept any browser-displayable image libvips can decode (JPEG, PNG, WebP, GIF, AVIF, TIFF, SVG), capped at 5 MB per request; stored files are kept under 1 MB
+- Only the relative `/uploads/...` path is stored in Postgres, so the same row works on localhost, an EC2 DNS name or a custom domain
+- Rollback: uploaded images are deleted if the database write fails; replaced and deleted posts remove their files from disk
 - Request validation with Zod, centralized custom errors and error codes
 - Centralized fetch client with error toasts for API and network failures
 
@@ -104,7 +109,7 @@ offscript-next/
 | shadcn (Base UI)    | Component library                          |
 | Prisma 7 + PostgreSQL | ORM and database                         |
 | @prisma/adapter-pg  | Prisma PostgreSQL driver adapter          |
-| Supabase JS         | Supabase Storage integration               |
+| sharp               | Server-side image compression (WebP)       |
 | jose (JWT)          | Token creation and verification           |
 | bcryptjs            | Password hashing                           |
 | Zod                 | Request validation                         |
@@ -116,8 +121,7 @@ offscript-next/
 
 - Node.js 20.9+
 - npm
-- A PostgreSQL database, such as Supabase Postgres
-- A Supabase project if image storage is enabled
+- A PostgreSQL database, such as Supabase Postgres — or Docker (optional, see [Docker](#docker))
 
 ## Environment variables
 
@@ -126,12 +130,10 @@ Create `.env` from `.env.example`:
 ```env
 DATABASE_URL="postgresql://user:password@host:5432/database?schema=public"
 JWT_SECRET="replace-with-a-long-random-secret"
-SUPABASE_URL="https://your-project.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="your-server-side-service-role-key"
-SUPABASE_BUCKET="your-storage-bucket-name"
+UPLOAD_DIR="uploads"
 ```
 
-The app runs without Supabase configured — only image uploads require it (`SUPABASE_CONFIG_ERROR` otherwise). Never expose `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` or `JWT_SECRET` to the client.
+`UPLOAD_DIR` is where post images are written; it defaults to `uploads/` in the project directory and the Docker stack uses `/app/uploads`. Never expose `DATABASE_URL` or `JWT_SECRET` to the client.
 
 ## Run locally
 
@@ -143,6 +145,65 @@ npm run dev
 ```
 
 The app runs on http://localhost:3000 — the API and the UI are served from the same origin, so no CORS configuration is needed.
+
+## Docker
+
+A production-style stack (Next.js `standalone` image + Postgres + one-shot migrations) and an optional hot-reloading dev container are defined in `compose.yaml`.
+
+```bash
+npm run docker:up     # docker compose up --build  -> http://localhost:3000
+npm run docker:logs   # follow the app logs
+npm run docker:down   # stop, keep pgdata and uploads
+npm run docker:reset  # stop AND DELETE the pgdata + uploads volumes (destructive)
+
+npm run docker:db     # Postgres only, for `npm run dev` on the host
+npm run docker:dev    # hot-reloading container on http://localhost:3001
+
+npm run docker:backup # dump the database + uploads into ./backups
+npm run docker:restore -- backups/db-<stamp>.sql.gz backups/uploads-<stamp>.tar.gz
+```
+
+How it fits together:
+
+- `db` — `postgres:17-alpine` with a `pg_isready` healthcheck and the `pgdata` volume.
+- `migrate` — one-shot `prisma migrate deploy` built from the Dockerfile `migrator` target. It runs once the database is healthy and exits; nothing else starts until it succeeds.
+- `app` — built from the `runner` target (`node server.js` from `.next/standalone`), runs as the non-root `nextjs` user, and only starts after `db` is healthy and `migrate` has completed. It also has a healthcheck against `/v1`.
+- `app-dev` — `docker compose --profile dev up` mounts the source tree and runs `next dev`; `node_modules`, `.next` and the generated Prisma client live in named volumes so your host tree stays clean.
+- post images live in the `uploads` volume mounted at `/app/uploads`, so they survive rebuilds and are not baked into the image. The volume is a Docker object, so it outlives `docker compose down`, `docker rm` and `--build`; only `docker compose down -v` (or `docker volume rm` / `docker system prune --volumes`) deletes it.
+
+### What deletes data, and how to back up
+
+| Command | Containers | `pgdata` + `uploads` volumes |
+| --- | --- | --- |
+| `docker compose stop` / `restart` | kept | kept |
+| `docker compose down` | removed | **kept** |
+| `docker rm -f offscript-app-1` | removed | **kept** |
+| `docker compose up --build` | recreated | **kept** |
+| `docker compose down -v` (`npm run docker:reset`) | removed | **deleted** |
+| `docker volume rm` / `docker system prune --volumes` | — | **deleted** |
+
+`npm run docker:backup` writes a `pg_dump` and a tar of the uploads volume to `./backups/` (gitignored) while the stack keeps running; both files are verified before it reports success. `npm run docker:restore` puts them back and asks for confirmation, because it replaces database contents. Uploaded files added after a backup are left in place by a restore rather than deleted.
+
+Caveat when running both surfaces: the container writes images to the `uploads` volume, while `npm run dev` on the host reads `./uploads`. An image uploaded through the container is therefore not visible to the host dev server, and vice versa. Use one surface at a time, or inspect/copy container-side files with `docker compose exec app ls -l uploads` and `docker compose cp app:/app/uploads/<file> ./uploads/`.
+
+Configuration notes:
+
+- This stack keeps the database **local to the deployment** (a Postgres container with the `pgdata` volume) rather than an external/RDS instance, so `pgdata` and `uploads` are the state to back up or move to persistent storage (e.g. an EBS mount) on AWS.
+- The `db` port is published on `127.0.0.1` only, so the database is reachable from `npm run dev` on the host but not from the internet. Remove the `ports` entry entirely if you never run the dev server on the host.
+- Compose reads the repo-root `.env` for `${VARS}` interpolation, so `JWT_SECRET` is picked up from there.
+- `DATABASE_URL` inside the containers is built from `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` and always points at the `db` service — a hosted `DATABASE_URL` in `.env` is never used by the containers.
+- Set `JWT_SECRET` before exposing the stack anywhere; the compose default is a deliberately insecure placeholder.
+- Auth cookies are issued with `secure: true`, so sign-in works over `http://localhost` but not over a plain-HTTP LAN address.
+
+## Image storage
+
+Post images are stored on the server's own disk — no external bucket or credentials.
+
+- `src/lib/storage.ts` re-encodes every upload with sharp: EXIF orientation applied, longest side capped at 1600 px, then WebP with a falling quality ladder until the file is under 900 KB. Encoding is single-threaded (`sharp.concurrency(1)`) so an upload cannot saturate a small instance.
+- Files are written to `UPLOAD_DIR` (default `uploads/`) via write-then-rename, so a half-written file is never visible.
+- `src/app/uploads/[...path]/route.ts` serves them at `/uploads/<uuid>.webp` with `immutable` caching. A route handler is used because Next snapshots `public/` at boot, which would 404 files uploaded while the server is running.
+- The database stores only the relative path, so changing hostname, adding TLS or moving behind a proxy needs no data migration. Legacy files in `public/uploads` are still served.
+- Deleting a post, or replacing its image, removes the previous file. Only `/uploads/...` paths are touched — absolute URLs from the old storage are left alone.
 
 ## Database and Prisma
 

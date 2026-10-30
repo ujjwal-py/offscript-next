@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { CustomError, ValidationError } from "@/lib/errors";
 import type { ZodType } from "zod";
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB per upload (before compression)
 
 /**
  * Mirrors the Express global error handler:
@@ -61,8 +60,10 @@ export async function parsePostForm<T>(
   let image: PostImageFile | null = null;
 
   if (imageEntry instanceof File && imageEntry.size > 0) {
-    if (!ALLOWED_IMAGE_TYPES.includes(imageEntry.type)) {
-      throw new ValidationError("Only JPEG, PNG, and WEBP images are allowed");
+    // Coarse gate on the declared type; src/lib/storage.ts sniffs the real
+    // format with sharp before anything is written or served.
+    if (imageEntry.type && !imageEntry.type.startsWith("image/")) {
+      throw new ValidationError("Only image files can be uploaded");
     }
     if (imageEntry.size > MAX_IMAGE_SIZE) {
       throw new ValidationError("Image must be 5 MB or smaller");

@@ -1,0 +1,130 @@
+# Local/production-like stack: Next.js app (standalone build) + Postgres.
+#
+#   docker compose up --build          # db -> migrate -> app  (http://localhost:3000)
+#   docker compose --profile dev up    # hot-reloading dev server on :3001
+#   docker compose down                # stop (keeps the pgdata volume)
+#   docker compose down -v             # stop and wipe the database
+#
+# Note: compose auto-reads the repo root .env for ${VARS} interpolation, so
+# JWT_SECRET comes from there when present. DATABASE_URL is intentionally built
+# from the POSTGRES_* values below so the containers never silently point at a
+# remote database. To use an external database, override DATABASE_URL on the
+# migrate/app services explicitly.
+
+name: offscript
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-offscript}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-offscript}
+      POSTGRES_DB: ${POSTGRES_DB:-offscript}
+    ports:
+      # Bound to loopback only: the database is "local" to this stack, so it
+      # must not be reachable from outside the host (important on EC2).
+      # `npm run dev` on the host can still reach it at localhost:5432.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-offscript} -d ${POSTGRES_DB:-offscript}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot: applies prisma/migrations, then exits. `app` waits for it.
+  migrate:
+    build:
+      context: .
+      target: migrator
+    image: offscript-migrator:local
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-offscript}:${POSTGRES_PASSWORD:-offscript}@db:5432/${POSTGRES_DB:-offscript}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: offscript-app:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Local Postgres by default; set DATABASE_URL here to target another DB.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-offscript}:${POSTGRES_PASSWORD:-offscript}@db:5432/${POSTGRES_DB:-offscript}?schema=public
+      # CHANGE THIS for anything reachable outside your machine.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me}
+      # Post images are written here and served at /uploads/<file>.
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Survives container rebuilds (`docker compose down -v` wipes it).
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # /v1 is the static health route, so it stays green while the DB is busy.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/v1').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Next drains in-flight requests and after() callbacks on SIGTERM.
+    stop_grace_period: 20s
+
+  # Opt-in hot-reloading container: `docker compose --profile dev up`.
+  # Source is bind-mounted; node_modules/.next/generated client stay in named
+  # volumes so the host tree is untouched.
+  app-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: dev
+    image: offscript-dev:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-offscript}:${POSTGRES_PASSWORD:-offscript}@db:5432/${POSTGRES_DB:-offscript}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me}
+      UPLOAD_DIR: /app/uploads
+      # Uncomment when file watching is unreliable (e.g. Docker Desktop/WSL).
+      # WATCHPACK_POLLING: "true"
+    ports:
+      - "${DEV_APP_PORT:-3001}:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - next_cache:/app/.next
+      - prisma_client:/app/src/generated
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  uploads:
+  node_modules:
+  next_cache:
+  prisma_client:
